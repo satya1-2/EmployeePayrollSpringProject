@@ -5,6 +5,8 @@ import com.example.employeepayroll.dto.EmployeeDTO;
 import com.example.employeepayroll.model.Employee;
 import com.example.employeepayroll.model.EmployeeModel;
 import com.example.employeepayroll.repo.EmployeeRepository;
+import com.example.employeepayroll.services.EmployeeNotFoundException;
+import com.example.employeepayroll.services.EmployeeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,76 +20,37 @@ import java.util.stream.Collectors;
 @RequestMapping("/employees")
 public class EmployeeController {
     @Autowired
-    private EmployeeRepository employeeRepository;
+    private EmployeeService employeeService;
 
     // GET all employees
     @GetMapping
     public List<EmployeeModel> getAllEmployees() {
-        List<Employee> employees = employeeRepository.findAll();
-        return employees.stream()
-                .map(this::convertToModel)
-                .collect(Collectors.toList());
+        return employeeService.getAllEmployees();
     }
 
     // GET employee by ID
     @GetMapping("/{employeeId}")
-    public ResponseEntity<EmployeeModel> getEmployeeById(@PathVariable Long employeeId) {
-        Optional<Employee> employee = employeeRepository.findById(employeeId);
-        if (employee.isPresent()) {
-            return ResponseEntity.ok(convertToModel(employee.get()));
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public EmployeeModel getEmployeeById(@PathVariable Long employeeId) throws EmployeeNotFoundException {
+        return employeeService.getEmployeeById(employeeId);
     }
 
     // POST create new employee
     @PostMapping
     public ResponseEntity<EmployeeModel> createEmployee(@RequestBody EmployeeDTO employeeDTO) {
-        Employee newEmployee = convertToEntity(employeeDTO);
-        Employee createdEmployee = employeeRepository.save(newEmployee);
-        return ResponseEntity.status(HttpStatus.CREATED).body(convertToModel(createdEmployee));
+        EmployeeModel createdEmployee = employeeService.createEmployee(employeeDTO);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdEmployee);
     }
 
     // PUT update employee
     @PutMapping("/{employeeId}")
-    public ResponseEntity<EmployeeModel> updateEmployee(@PathVariable Long employeeId, @RequestBody EmployeeDTO employeeDTO) {
-        Optional<Employee> optionalEmployee = employeeRepository.findById(employeeId);
-        if (optionalEmployee.isPresent()) {
-            Employee existingEmployee = optionalEmployee.get();
-            existingEmployee.setName(employeeDTO.getName());
-            existingEmployee.setSalary(employeeDTO.getSalary());
-            Employee updatedEmployee = employeeRepository.save(existingEmployee);
-            return ResponseEntity.ok(convertToModel(updatedEmployee));
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public EmployeeModel updateEmployee(@PathVariable Long employeeId, @RequestBody EmployeeDTO employeeDTO) throws EmployeeNotFoundException {
+        return employeeService.updateEmployee(employeeId, employeeDTO);
     }
 
     // DELETE employee
     @DeleteMapping("/{employeeId}")
-    public ResponseEntity<Void> deleteEmployee(@PathVariable Long employeeId) {
-        Optional<Employee> optionalEmployee = employeeRepository.findById(employeeId);
-        if (optionalEmployee.isPresent()) {
-            employeeRepository.deleteById(employeeId);
-            return ResponseEntity.noContent().build();
-        } else {
-            return ResponseEntity.notFound().build();
-        }
-    }
-
-    // Helper methods to convert between DTO and Model
-    private EmployeeModel convertToModel(Employee employee) {
-        EmployeeModel model = new EmployeeModel();
-        model.setId(employee.getId());
-        model.setName(employee.getName());
-        model.setSalary(employee.getSalary());
-        return model;
-    }
-
-    private Employee convertToEntity(EmployeeDTO dto) {
-        Employee entity = new Employee();
-        entity.setName(dto.getName());
-        entity.setSalary(dto.getSalary());
-        return entity;
+    public ResponseEntity<Void> deleteEmployee(@PathVariable Long employeeId) throws EmployeeNotFoundException {
+        employeeService.deleteEmployee(employeeId);
+        return ResponseEntity.noContent().build();
     }
 }
