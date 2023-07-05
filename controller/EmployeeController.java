@@ -1,7 +1,9 @@
 package com.example.employeepayroll.controller;
 
 
+import com.example.employeepayroll.dto.EmployeeDTO;
 import com.example.employeepayroll.model.Employee;
+import com.example.employeepayroll.model.EmployeeModel;
 import com.example.employeepayroll.repo.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/employees")
@@ -19,34 +22,42 @@ public class EmployeeController {
 
     // GET all employees
     @GetMapping
-    public List<Employee> getAllEmployees() {
-        return employeeRepository.findAll();
+    public List<EmployeeModel> getAllEmployees() {
+        List<Employee> employees = employeeRepository.findAll();
+        return employees.stream()
+                .map(this::convertToModel)
+                .collect(Collectors.toList());
     }
 
     // GET employee by ID
     @GetMapping("/{employeeId}")
-    public ResponseEntity<Employee> getEmployeeById(@PathVariable Long employeeId) {
+    public ResponseEntity<EmployeeModel> getEmployeeById(@PathVariable Long employeeId) {
         Optional<Employee> employee = employeeRepository.findById(employeeId);
-        return employee.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+        if (employee.isPresent()) {
+            return ResponseEntity.ok(convertToModel(employee.get()));
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     // POST create new employee
     @PostMapping
-    public ResponseEntity<Employee> createEmployee(@RequestBody Employee employee) {
-        Employee createdEmployee = employeeRepository.save(employee);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdEmployee);
+    public ResponseEntity<EmployeeModel> createEmployee(@RequestBody EmployeeDTO employeeDTO) {
+        Employee newEmployee = convertToEntity(employeeDTO);
+        Employee createdEmployee = employeeRepository.save(newEmployee);
+        return ResponseEntity.status(HttpStatus.CREATED).body(convertToModel(createdEmployee));
     }
 
     // PUT update employee
     @PutMapping("/{employeeId}")
-    public ResponseEntity<Employee> updateEmployee(@PathVariable Long employeeId, @RequestBody Employee employeeDetails) {
+    public ResponseEntity<EmployeeModel> updateEmployee(@PathVariable Long employeeId, @RequestBody EmployeeDTO employeeDTO) {
         Optional<Employee> optionalEmployee = employeeRepository.findById(employeeId);
         if (optionalEmployee.isPresent()) {
-            Employee employee = optionalEmployee.get();
-            employee.setName(employeeDetails.getName());
-            employee.setSalary(employeeDetails.getSalary());
-            Employee updatedEmployee = employeeRepository.save(employee);
-            return ResponseEntity.ok(updatedEmployee);
+            Employee existingEmployee = optionalEmployee.get();
+            existingEmployee.setName(employeeDTO.getName());
+            existingEmployee.setSalary(employeeDTO.getSalary());
+            Employee updatedEmployee = employeeRepository.save(existingEmployee);
+            return ResponseEntity.ok(convertToModel(updatedEmployee));
         } else {
             return ResponseEntity.notFound().build();
         }
@@ -62,5 +73,21 @@ public class EmployeeController {
         } else {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    // Helper methods to convert between DTO and Model
+    private EmployeeModel convertToModel(Employee employee) {
+        EmployeeModel model = new EmployeeModel();
+        model.setId(employee.getId());
+        model.setName(employee.getName());
+        model.setSalary(employee.getSalary());
+        return model;
+    }
+
+    private Employee convertToEntity(EmployeeDTO dto) {
+        Employee entity = new Employee();
+        entity.setName(dto.getName());
+        entity.setSalary(dto.getSalary());
+        return entity;
     }
 }
